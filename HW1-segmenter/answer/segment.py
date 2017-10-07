@@ -2,12 +2,13 @@ import sys, codecs, optparse, os
 import collections, heapq, math
 
 optparser = optparse.OptionParser()
-optparser.add_option("-c", "--unigramcounts", dest='counts1w', default='D:\\Courses\\825\\homework\\nlp-class-hw\\segmenter\\data\\count_1w.txt', help="unigram counts")
-optparser.add_option("-b", "--bigramcounts", dest='counts2w', default='D:\\Courses\\825\\homework\\nlp-class-hw\\segmenter\\data\\count_2w.txt', help="bigram counts")
-optparser.add_option("-i", "--inputfile", dest="input", default='D:\\Courses\\825\\homework\\nlp-class-hw\\segmenter\\data\\input', help="input file to segment")
+optparser.add_option("-c", "--unigramcounts", dest='counts1w', default=os.path.join('data', 'count_1w.txt'), help="unigram counts")
+optparser.add_option("-b", "--bigramcounts", dest='counts2w', default=os.path.join('data', 'count_2w.txt'), help="bigram counts")
+optparser.add_option("-i", "--inputfile", dest="input", default=os.path.join('data', 'input'), help="input file to segment")
 (opts, _) = optparser.parse_args()
 
-input_len=0
+
+input_len = 0
 with open(opts.input) as f:
     for l in f:
         input_len += len(unicode(l.strip(), 'utf-8'))
@@ -25,7 +26,7 @@ class Pdist(dict):
                 raise ValueError("Unexpected error %s" % (sys.exc_info()[0]))
             self[utf8key] = self.get(utf8key, 0) + int(freq)
             self.maxlen = max(len(utf8key), self.maxlen)
-            
+
         self.N = float(N or sum(self.itervalues()))+input_len
         self.missingfn = missingfn or (lambda k, N: len(k)*math.log10(float(1.)/N) )
 
@@ -38,7 +39,7 @@ class Pdist(dict):
             return None
 
 # the default segmenter does not use any probabilities, but you could ...
-Pw  = Pdist(opts.counts1w)
+Pw = Pdist(opts.counts1w)
 
 #Entry for each line
 Entry = collections.namedtuple('Entry', ['start_pos', 'log_prob', 'word', 'prev_entry'])
@@ -62,10 +63,10 @@ with open(opts.input) as f:
             entry = heapq.heappop(hp)
             endindex = entry.start_pos+len(entry.word)-1
             if chart[endindex] != None:
-                    if entry.log_prob > chart[endindex].log_prob:
-                        chart[endindex] = entry
-                    else:
-                        continue
+                if entry.log_prob > chart[endindex].log_prob:
+                    chart[endindex] = entry
+                else:
+                    continue
             else:
                 chart[endindex] = entry
             for j in xrange(endindex+1, line_len):
@@ -82,9 +83,9 @@ with open(opts.input) as f:
         tmp = finalentry
         res = []
         while tmp.prev_entry != None:
-            res=[tmp.word]+res
+            res = [tmp.word]+res
             tmp = tmp.prev_entry
-        res=[tmp.word]+res
+        res = [tmp.word]+res
         print " ".join(res)
 
 sys.stdout = old
