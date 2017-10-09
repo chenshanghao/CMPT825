@@ -6,20 +6,18 @@ Work to the homework solution:
 -------------------------------------------------------
 The commit identifiers from SFU GitLab
 
-06 Oct, 2017 5 commits
-
-liufanl's avatar
 test code for segment
-liufanl committed 2 minutes ago
+liufanl committed a day ago
+commit ID: 1ab43be8
 
-liufanl's avatar
 unigram word count for big training dataset
-liufanl committed 3 minutes ago
+liufanl committed a day ago
+commit ID: 77984866
 
-liufanl's avatar
 unigram work count from wseg_simplified_cn.txt
-liufanl committed 7 minutes ago
+liufanl committed a day ago
+commit ID: 02eb4942
 
-liufanl's avatar
 liufanl worklist to HW1
-liufanl committed 9 minutes ago
+liufanl committed a day ago
+commit ID: a0a8401a
