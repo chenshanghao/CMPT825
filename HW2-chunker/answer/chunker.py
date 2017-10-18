@@ -39,20 +39,24 @@ def perc_train(train, target_set, numepochs):
         mistakes = 0
         for sentence in train:
             words, words_feats = sentence
-            y_hat = perc.perc_test(weights, words, words_feats, target_set, target_set[0])
             true_y = [words[i].split()[2] for i in xrange(len(words))]
+            y_hat = perc.perc_test(weights, words, words_feats, target_set, target_set[0])
 
-            for i in xrange(len(words_feats)):
-                tag_id = i/VEC_LEN
-                if y_hat[tag_id] != true_y[tag_id]:
-                    mistakes += 1
-                    weights[(words_feats[i], y_hat[tag_id])] -= 1.0
-                    weights[(words_feats[i], true_y[tag_id])] += 1.0
-
-        new_weights = defaultdict(int)
-        for k, v in weights.iteritems():
-            if v != 0: new_weights[k] = v
-        weights = new_weights
+            #for i in xrange(len(words_feats)):
+            for i in xrange(len(y_hat)-1):
+                if y_hat[i] != true_y[i]:
+                    mistakes += 20
+                    for j in xrange(20):
+                        if (words_feats[i*20+j], y_hat[i]) in weights:
+                            weights[(words_feats[i*20+j], y_hat[i])] -= 1
+                        else:
+                            weights[(words_feats[i*20+j], y_hat[i])] = -1
+                        if (words_feats[i*20+j], y_hat[i]) in weights:
+                            weights[(words_feats[i*20+j], true_y[i])] += 1
+                        else:
+                            weights[(words_feats[i*20+j], true_y[i])] = 1
+                    weights[('B:'+y_hat[i], y_hat[i+1])] -= 1
+                    weights[('B:'+true_y[i], true_y[i+1])] += 1
 
         print "epoch {0} has {1} mistakes".format(epoch, mistakes)
 
@@ -65,9 +69,11 @@ if __name__ == '__main__':
         help="tagset that contains all the labels produced in the output, i.e. the y in \phi(x,y)")
     OPT_PARSER.add_option(
         "-i", "--trainfile", dest="trainfile", default=os.path.join("data", "train.txt.gz"),
+        #"-i", "--trainfile", dest="trainfile", default=os.path.join("data", "train.dev"),
         help="input data, i.e. the x in \phi(x,y)")
     OPT_PARSER.add_option(
         "-f", "--featfile", dest="featfile", default=os.path.join("data", "train.feats.gz"),
+        #"-f", "--featfile", dest="featfile", default=os.path.join("data", "train.feats.dev"),
         help="precomputed features for the input data, i.e. the values of \phi(x,_) without y")
     OPT_PARSER.add_option(
         "-e", "--numepochs", dest="numepochs", default=int(10),
@@ -77,7 +83,7 @@ if __name__ == '__main__':
         help="weights for all features stored on disk")
     (OPTS, _) = OPT_PARSER.parse_args()
 
-    # each element in the FEAT_VEC dictionary is:
+    # each element in the feat_vec dictionary is:
     # key=feature_id value=weight
     FEAT_VEC = {}
     TAGSET = []
@@ -87,5 +93,5 @@ if __name__ == '__main__':
     print >>sys.stderr, "reading data ..."
     TRAIN_DATA = perc.read_labeled_data(OPTS.trainfile, OPTS.featfile)
     print >>sys.stderr, "done."
-    FEAT_VEC = perc_train(TRAIN_DATA, TAGSET, 1)#int(opts.numepochs))
+    FEAT_VEC = perc_train(TRAIN_DATA, TAGSET, int(OPTS.numepochs))
     perc.perc_write_to_file(FEAT_VEC, OPTS.modelfile)
