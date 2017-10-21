@@ -45,8 +45,6 @@ def perc_train(train, target_set, numepochs):
             true_y = [words[i].split()[2] for i in xrange(len(words))]
             y_hat = perc.perc_test(weights, words, words_feats, target_set, target_set[0])
 
-                  #[i] [i]
-            #for i in xrange(len(words_feats)):
             for i in xrange(len(y_hat)-1):
                 if y_hat[i]!= true_y[i]: 
                     mistakes += 20

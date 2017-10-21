@@ -34,6 +34,7 @@ VEC_LEN = 20
 def perc_train(train, target_set, numepochs):
     '''based on train and Y_set train porper weights to get correct syntax tag'''
     weights = defaultdict(int)
+    sum_weights = {}
 
     for epoch in xrange(numepochs):
         mistakes = 0
@@ -42,25 +43,44 @@ def perc_train(train, target_set, numepochs):
             true_y = [words[i].split()[2] for i in xrange(len(words))]
             y_hat = perc.perc_test(weights, words, words_feats, target_set, target_set[0])
 
-            #for i in xrange(len(words_feats)):
-            for i in xrange(len(y_hat)-1):
+            for i in xrange(len(y_hat)):
                 if y_hat[i] != true_y[i]:
                     mistakes += 20
                     for j in xrange(20):
                         if (words_feats[i*20+j], y_hat[i]) in weights:
                             weights[(words_feats[i*20+j], y_hat[i])] -= 1
+                            if (words_feats[i*20+j], true_y[i]) in weights:
+                                weights[(words_feats[i*20+j], true_y[i])] += 1
+                            else:
+                                weights[(words_feats[i*20+j], true_y[i])] = 1
                         else:
                             weights[(words_feats[i*20+j], y_hat[i])] = -1
-                        if (words_feats[i*20+j], y_hat[i]) in weights:
-                            weights[(words_feats[i*20+j], true_y[i])] += 1
+                            if (words_feats[i*20+j], true_y[i]) in weights:
+                                weights[(words_feats[i*20+j], true_y[i])] += 1
+                            else:
+                                weights[(words_feats[i*20+j], true_y[i])] = 1
+
+                    if i < len(y_hat)-1:
+                        if ('B:'+y_hat[i], y_hat[i+1]) in weights:
+                            weights[('B:'+y_hat[i], y_hat[i+1])] -= 1
+                            if ('B:'+true_y[i], true_y[i+1]) in weights:
+                                weights[('B:'+true_y[i], true_y[i+1])] += 1
+                            else:
+                                weights[('B:'+true_y[i], true_y[i+1])] = 1
                         else:
-                            weights[(words_feats[i*20+j], true_y[i])] = 1
-                    weights[('B:'+y_hat[i], y_hat[i+1])] -= 1
-                    weights[('B:'+true_y[i], true_y[i+1])] += 1
+                            weights[('B:'+y_hat[i], y_hat[i+1])] = -1
+                            weights[('B:'+true_y[i], true_y[i+1])] = 1
+
+            for k, v in weights.iteritems():
+                if k in sum_weights: sum_weights[k] += v
+                else: sum_weights[k] = v
 
         print "epoch {0} has {1} mistakes".format(epoch, mistakes)
 
-    return weights
+    avg_weights = {}
+    for k, v in sum_weights.iteritems():
+        avg_weights[k] = 1.0*v/(len(train)*numepochs*numepochs)
+    return avg_weights
 
 if __name__ == '__main__':
     OPT_PARSER = optparse.OptionParser()
