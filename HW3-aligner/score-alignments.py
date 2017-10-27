@@ -33,29 +33,29 @@ for (i, (f, e, g, a)) in enumerate(zip(open(f_data), open(e_data), open(a_data),
   size_a_and_s += len(alignment & sure)
   size_a_and_p += len(alignment & possible) + len(alignment & sure)
   if (i<opts.n):
-    sys.stdout.write("  Alignment %i  KEY: ( ) = guessed, * = sure, ? = possible\n" % i)
-    sys.stdout.write("  ")
-    for j in ewords:
-      sys.stdout.write("---")
-    sys.stdout.write("\n")
+    #sys.stdout.write("  Alignment %i  KEY: ( ) = guessed, * = sure, ? = possible\n" % i)
+    #sys.stdout.write("  ")
+    #for j in ewords:
+      #sys.stdout.write("---")
+    #sys.stdout.write("\n")
     for (i, f_i) in enumerate(fwords):
-      sys.stdout.write(" |")
+      #sys.stdout.write(" |")
       for (j, _) in enumerate(ewords):
         (left,right) = ("(",")") if (i,j) in alignment else (" "," ")
         point = "*" if (i,j) in sure else "?" if (i,j) in possible else " "
-        sys.stdout.write("%s%s%s" % (left,point,right))
-      sys.stdout.write(" | %s\n" % f_i)
-    sys.stdout.write("  ")
-    for j in ewords:
-      sys.stdout.write("---")
-    sys.stdout.write("\n")
+        #sys.stdout.write("%s%s%s" % (left,point,right))
+      #sys.stdout.write(" | %s\n" % f_i)
+    #sys.stdout.write("  ")
+    #for j in ewords:
+      #sys.stdout.write("---")
+    #sys.stdout.write("\n")
     for k in range(max(map(len, ewords))):
-      sys.stdout.write("  ")
+      #sys.stdout.write("  ")
       for word in ewords:
         letter = word[k] if len(word) > k else " "
-        sys.stdout.write(" %s " % letter)
-      sys.stdout.write("\n")
-    sys.stdout.write("\n")
+        #sys.stdout.write(" %s " % letter)
+      #sys.stdout.write("\n")
+    #sys.stdout.write("\n")
 
 precision = size_a_and_p / size_a
 recall = size_a_and_s / size_s
