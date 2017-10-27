@@ -36,25 +36,32 @@ def train():
     '''train body, dice is t_k'''
     dice_default = init()
     sys.stderr.write("Training with Dice's coefficient...\n")
-    for k in range(3):
+    #for k in range(3):
+    k = 0
+    while True:
+        k += 1
         sys.stderr.write("Iteration {0} ".format(k))
-        f_count = {}
         e_count = {}
         fe_count = {}
         for (f, e) in bitext:
-            for f_i in set(f):
+            for f_i in f:
                 Z = 0.0
-                for e_j in set(e):
-                    Z += dice.get((f_i, e_j), dice_default)
-                for e_j in set(e):
-                    c = dice.get((f_i, e_j), dice_default)/Z
+                for e_j in e:
+                    if (f_i, e_j) not in dice: dice[(f_i, e_j)] = dice_default
+                    Z += dice[(f_i, e_j)]
+                for e_j in e:
+                    c = dice[(f_i, e_j)]/Z
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     e_count[e_j] = e_count.get(e_j, 0.0)+c
+        loss = 0.0
         for (it, (f_i, e_j)) in enumerate(fe_count.keys()):
+            loss = max(abs(dice[(f_i, e_j)]-fe_count[(f_i, e_j)] / e_count[e_j]), loss)
             dice[(f_i, e_j)] = fe_count[(f_i, e_j)] / e_count[e_j]
             if it % 500000 == 0:
                 sys.stderr.write(".")
-        sys.stderr.write("\n")
+        sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
+        #if loss < .0001: return
+        if k == 5: return
 
 def decode():
     for (f, e) in bitext:
@@ -65,6 +72,7 @@ def decode():
                     bestp = dice[(f_i, e_j)]
                     bestj = j
             sys.stdout.write("%i-%i " % (i, bestj))
+        sys.stdout.write("\n")
 
 def main():
     '''main'''
