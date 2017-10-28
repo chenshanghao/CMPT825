@@ -35,10 +35,9 @@ def init():
 def train():
     '''train body, dice is t_k'''
     dice_default = init()
-    sys.stderr.write("Training with Dice's coefficient...\n")
+    sys.stderr.write("Training with expected maximization algorithm...\n")
     for k in range(5):
         sys.stderr.write("Iteration {0} ".format(k))
-        #f_count = {}
         e_count = {}
         fe_count = {}
 
