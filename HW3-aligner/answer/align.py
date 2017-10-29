@@ -35,19 +35,17 @@ def init():
 def train():
     '''train body, dice is t_k'''
     dice_default = init()
-    sys.stderr.write("Training with Dice's coefficient...\n")
-    #for k in range(3):
-    k = 0
-    while True:
-        k += 1
+    sys.stderr.write("Training with expected maximization algorithm...\n")
+    for k in range(5):
         sys.stderr.write("Iteration {0} ".format(k))
         e_count = {}
         fe_count = {}
+
         for (f, e) in bitext:
             for f_i in f:
                 Z = 0.0
                 for e_j in e:
-                    if (f_i, e_j) not in dice: dice[(f_i, e_j)] = dice_default
+                    if (f_i, e_j) not in dice: dice[(f_i, e_j)]=dice_default
                     Z += dice[(f_i, e_j)]
                 for e_j in e:
                     c = dice[(f_i, e_j)]/Z
@@ -62,6 +60,7 @@ def train():
         sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
         #if loss < .0001: return
         if k == 5: return
+
 
 def decode():
     for (f, e) in bitext:
