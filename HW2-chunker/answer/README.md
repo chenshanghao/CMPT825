@@ -35,6 +35,9 @@ Except updating weights per epoch, we aggregate weights to a dictionary sum_weig
 * Bigram
 
 Bigram is one of the feature vector but not implemented, so we add corresponding value for each word and the accuracy is improved by about 1%, so we keep it.
+
+```bash
 if tag_hat_cur != true_tag_cur:
     weights[(tag_hat_cur, tag_hat_next)]--
     weights[(tag_true_cur, tag_true_next)]++
+```
