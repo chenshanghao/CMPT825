@@ -2,8 +2,10 @@
 
 ## Run commands
 
+```bash
 python answer/chunk.py -e 10
 python perc.py -m data/default.model | python score-chunks.py
+```
 
 ## Descriptions and motivations
 
