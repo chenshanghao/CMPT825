@@ -1,3 +1,4 @@
-anoopsarkar.github.io/nlp-class/assets/handouts/midterm-fall2016.pdf
+sample:anoopsarkar.github.io/nlp-class/assets/handouts/midterm-fall2016.pdf
+sample solution:anoopsarkar.github.io/nlp-class/assets/handouts/midterm-fall2016-soln.pdf
 90 min
 up to align IBM Model 1
