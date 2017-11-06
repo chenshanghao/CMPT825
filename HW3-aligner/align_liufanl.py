@@ -18,26 +18,39 @@ e_data = "%s.%s" % (os.path.join(opts.datadir, opts.fileprefix), opts.english)
 if opts.logfile:
     logging.basicConfig(filename=opts.logfile, filemode='w', level=logging.INFO)
 
-sys.stderr.write("Training with Dice's coefficient...")
+sys.stderr.write("Training IBM Model 1 (no nulls) with Expectation Maximization...\n")
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))[:opts.num_sents]]
 f_count = defaultdict(int)
-e_count = defaultdict(int)
 fe_count = defaultdict(int)
 for (n, (f, e)) in enumerate(bitext):
   for f_i in set(f):
     f_count[f_i] += 1
     for e_j in set(e):
       fe_count[(f_i,e_j)] += 1
-  for e_j in set(e):
-    e_count[e_j] += 1
-  if n % 500 == 0:
-    sys.stderr.write(".")
 
 V_f = len(f_count)
 t_k = dict.fromkeys(fe_count.keys(), 1.0/V_f)
 
+
+# V_f = defaultdict(int)
+
+# for (n, (f, e)) in enumerate(bitext):
+#   for e_j in set(e):
+#     for f_i in set(f):
+#       fe_count[(f_i,e_j)] += 1
+#       if fe_count[(f_i,e_j)] == 1:
+#         V_f[e_j] += 1
+#     if n % 500 == 0:
+#       sys.stderr.write(".")
+
+# t_k = defaultdict(int)
+# for f_word, e_word in fe_count:
+#   t_k[(f_word, e_word)] = 1.0/V_f[e_word]
+
 iteration = 5
+
 for i in xrange(iteration):
+  sys.stderr.write("Iteration {0}\n".format(i))
   fe_count = defaultdict(int)
   e_count = defaultdict(int)
   for (n, (f, e)) in enumerate(bitext):
@@ -52,20 +65,22 @@ for i in xrange(iteration):
 
   for (k, (f_i, e_j)) in enumerate(fe_count.keys()):
     t_k[(f_i, e_j)] = 1.0 * fe_count[(f_i,e_j)] / e_count[e_j]
-    if k % 5000 == 0:
+    if k % 50000 == 0:
       sys.stderr.write(".")
   sys.stderr.write("\n")
 
+sys.stderr.write("Aligning...\n")
 dice = defaultdict(int)
 for (n, (f, e)) in enumerate(bitext):
-  for f_i in set(f):
-    bestp = 0
-    bestj = 0
-    for e_j in set(e):
+  for (i, f_i) in enumerate(f):
+    bestp = 0.0
+    bestj = 0.0
+    for (j, e_j) in enumerate(e):
       if t_k[(f_i, e_j)] > bestp:
         bestp = t_k[(f_i, e_j)]
-        bestj = e_j
-    dice[(f_i, bestj)] = bestp
+        bestj = j
+    sys.stdout.write("%i-%i " % (i, bestj))
+  sys.stdout.write("\n")
 
 # dice = defaultdict(int)
 # for (k, (f_i, e_j)) in enumerate(fe_count.keys()):
@@ -74,9 +89,9 @@ for (n, (f, e)) in enumerate(bitext):
 #     sys.stderr.write(".")
 # sys.stderr.write("\n")
 
-for (f, e) in bitext:
-  for (i, f_i) in enumerate(f): 
-    for (j, e_j) in enumerate(e):
-      if dice[(f_i,e_j)] >= opts.threshold:
-        sys.stdout.write("%i-%i " % (i,j))
-  sys.stdout.write("\n")
+# for (f, e) in bitext:
+#   for (i, f_i) in enumerate(f): 
+#     for (j, e_j) in enumerate(e):
+#       if dice[(f_i,e_j)] >= opts.threshold:
+#         sys.stdout.write("%i-%i " % (i,j))
+#   sys.stdout.write("\n")
