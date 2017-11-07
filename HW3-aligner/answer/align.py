@@ -23,6 +23,8 @@ e_data = "%s.%s" % (os.path.join(OPTS.datadir, OPTS.fileprefix), OPTS.english)
 if OPTS.logfile:
     logging.basicConfig(filename=OPTS.logfile, filemode='w', level=logging.INFO)
 
+e_vocab = len(set([w for s in open(e_data) for w in s.strip().split()]))
+f_vocab = len(set([w for s in open(f_data) for w in s.strip().split()]))
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))[:OPTS.num_sents]]
 dice = {}
 dice_ef = {}
@@ -30,17 +32,11 @@ dice_fe = {}
 
 def train_ef():
     '''train e|f, dice is t_k'''
-    def init():
-        '''uniformly initilize ef_count'''
-        e_word_len = len(set([w for s in open(e_data) for w in s.strip().split()]))
-        return 1.0/e_word_len
-
-    dice_default = init()
-    for k in range(5):
+    dice_default = 1.0/e_vocab
+    for k in range(3):
         sys.stderr.write("train_ef: Iteration {0} ".format(k))
         f_count = {}
         fe_count = {}
-
         for (f, e) in bitext:
             for e_j in e:
                 Z = 0.0
@@ -63,17 +59,11 @@ def train_ef():
 
 def train_fe():
     '''train f|e, dice is t_k'''
-    def init():
-        '''uniformly initilize fe_count'''
-        f_word_len = len(set([w for s in open(f_data) for w in s.strip().split()]))
-        return 1.0/f_word_len
-
-    dice_default = init()
-    for k in range(5):
+    dice_default = 1.0/f_vocab
+    for k in range(3):
         sys.stderr.write("train_fe: Iteration {0} ".format(k))
         e_count = {}
         fe_count = {}
-
         for (f, e) in bitext:
             for f_i in f:
                 Z = 0.0
@@ -91,23 +81,35 @@ def train_fe():
             if it % 500000 == 0:
                 sys.stderr.write(".")
         sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
-        #if loss < .0001: return
         if k == 5: return
 
 
 def decode():
     '''decode best alignment based on EM'''
-    for (f, e) in dice_ef:
-        if (f, e) in dice_fe:
-            dice[(f, e)] = dice_fe[(f, e)]
-    for (f, e) in bitext:
+    res_ef = dict()
+    res_fe = dict()
+    for it, (f, e) in enumerate(bitext):
+        for j, e_j in enumerate(e):
+            bestp, besti = 0.0, 0.0
+            for i, f_i in enumerate(f):
+                if dice_ef[(f_i, e_j)] > bestp:
+                    bestp = dice_ef[(f_i, e_j)]
+                    besti = i
+            if it not in res_ef: res_ef[it] = [besti]
+            else: res_ef[it].append(besti)
+    for it, (f, e) in enumerate(bitext):
         for i, f_i in enumerate(f):
             bestp, bestj = 0.0, 0.0
             for j, e_j in enumerate(e):
-                if dice[(f_i, e_j)] > bestp:
-                    bestp = dice[(f_i, e_j)]
+                if dice_fe[(f_i, e_j)] > bestp:
+                    bestp = dice_fe[(f_i, e_j)]
                     bestj = j
-            sys.stdout.write("%i-%i " % (i, bestj))
+            if i == 0: res_fe[it] = [bestj]
+            else: res_fe[it].append(bestj)
+    for it, (f, e) in enumerate(bitext):
+        for i in xrange(len(f)):
+            if i == res_ef[it][res_fe[it][i]]:
+                sys.stdout.write("%i-%i " % (i, res_fe[it][i]))
         sys.stdout.write("\n")
 
 def train():
