@@ -93,7 +93,8 @@ def train_symmetric(dice, dice_ef, dice_fe):
         loss = 0.0
         for f_i, e_j in set(fe_count.keys()) | set(fe_count.keys()):
             loss = max(abs(dice_ef[(f_i, e_j)]-fe_count[(f_i, e_j)] / f_count[f_i]), loss)
-            dice[(f_i, e_j)] = max(fe_count[(f_i, e_j)] / f_count[f_i], ef_count[(f_i, e_j)] / e_count[f_i])
+            dice[(f_i, e_j)] = max(fe_count[(f_i, e_j)] / f_count[f_i] if f_i in f_count else 0,
+                                   ef_count[(f_i, e_j)] / e_count[e_j] if e_j in e_count else 0)
         sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
 
 
