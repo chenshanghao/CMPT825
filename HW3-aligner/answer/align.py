@@ -161,7 +161,7 @@ def main():
     train_ef(dice_ef, e_vocab)
     train_fe(dice_fe, f_vocab)
     #train_symmetric(dice, dice_ef, dice_fe)
-    decode3(dice_ef, dice_fe)
+    decode1(dice_ef, dice_fe)
     #decode2(dice)
 
 
