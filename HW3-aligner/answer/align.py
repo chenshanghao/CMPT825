@@ -49,7 +49,7 @@ def train_ef(dice_ef, default):
         for f_i, e_j in fe_count:
             loss = max(abs(dice_ef.get((f_i, e_j), 1./default)-fe_count[(f_i, e_j)] / f_count[f_i]), loss)
             dice_ef[(f_i, e_j)] = fe_count[(f_i, e_j)] / f_count[f_i]
-        sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
+        sys.stderr.write(": loss is {0:2.5f}.\n".format(loss))
 
 def train_fe(dice_fe, default):
     '''train f|e'''
@@ -68,7 +68,7 @@ def train_fe(dice_fe, default):
         for f_i, e_j in fe_count:
             loss = max(abs(dice_fe.get((f_i, e_j), 1./default)-fe_count[(f_i, e_j)] / e_count[e_j]), loss)
             dice_fe[(f_i, e_j)] = fe_count[(f_i, e_j)] / e_count[e_j]
-        sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
+        sys.stderr.write(": loss is {0:2.5f}.\n".format(loss))
 
 
 def train_symmetric(dice, dice_ef, dice_fe):
@@ -138,6 +138,7 @@ def decode2(dice):
 
 def decode3(dice_ef, dice_fe):
     '''decode best alignment based on EM'''
+    delta = 0.1
     for f, e in bitext:
         for i, f_i in enumerate(f):
             bestp, bestj = 0.0, 0.0
@@ -161,7 +162,7 @@ def main():
     train_ef(dice_ef, e_vocab)
     train_fe(dice_fe, f_vocab)
     #train_symmetric(dice, dice_ef, dice_fe)
-    decode1(dice_ef, dice_fe)
+    decode3(dice_ef, dice_fe)
     #decode2(dice)
 
 
