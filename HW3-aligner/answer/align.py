@@ -16,7 +16,7 @@ OPTPARSER.add_option("-e", "--english", dest="english", default="en", help="suff
 OPTPARSER.add_option("-f", "--french", dest="french", default="fr", help="suffix of French (source language) filename (default=fr)")
 OPTPARSER.add_option("-l", "--logfile", dest="logfile", default=None, help="filename for logging output")
 OPTPARSER.add_option("-t", "--threshold", dest="threshold", default=0.5, type="float", help="threshold for alignment (default=0.5)")
-OPTPARSER.add_option("-n", "--num_sentences", dest="num_sents", default=1000, type="int", help="Number of sentences to use for training and alignment")
+OPTPARSER.add_option("-n", "--num_sentences", dest="num_sents", default=10, type="int", help="Number of sentences to use for training and alignment")
 (OPTS, _) = OPTPARSER.parse_args()
 f_data = "%s.%s" % (os.path.join(OPTS.datadir, OPTS.fileprefix), OPTS.french)
 e_data = "%s.%s" % (os.path.join(OPTS.datadir, OPTS.fileprefix), OPTS.english)
@@ -25,53 +25,55 @@ if OPTS.logfile:
     logging.basicConfig(filename=OPTS.logfile, filemode='w', level=logging.INFO)
 
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))[:OPTS.num_sents]]
+EPOCH = 2
 
 def init():
     '''new init method'''
     pass
 
-def train_ef(dice_ef):
+
+def train_ef(dice_ef, default):
     '''train e|f'''
-    for k in range(3):
+    for k in xrange(EPOCH):
         sys.stderr.write("train_ef: Iteration {0}".format(k))
         f_count = {}
         fe_count = {}
         for (f, e) in bitext:
             for e_j in e:
-                Z = sum(dice_ef[(f_i, e_j)] for f_i in f)
+                Z = sum(dice_ef.get((f_i, e_j), 1./default) for f_i in f)
                 for f_i in f:
-                    c = dice_ef[(f_i, e_j)]/Z
+                    c = dice_ef.get((f_i, e_j), 1./default)/Z
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     f_count[f_i] = f_count.get(f_i, 0.0)+c
         loss = 0.0
         for f_i, e_j in fe_count:
-            loss = max(abs(dice_ef[(f_i, e_j)]-fe_count[(f_i, e_j)] / f_count[f_i]), loss)
+            loss = max(abs(dice_ef.get((f_i, e_j), 1./default)-fe_count[(f_i, e_j)] / f_count[f_i]), loss)
             dice_ef[(f_i, e_j)] = fe_count[(f_i, e_j)] / f_count[f_i]
-        sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
+        sys.stderr.write(": loss is {0:2.5f}.\n".format(loss))
 
-def train_fe(dice_fe):
+def train_fe(dice_fe, default):
     '''train f|e'''
-    for k in range(3):
+    for k in xrange(EPOCH):
         sys.stderr.write("train_fe: Iteration {0}".format(k))
         e_count = {}
         fe_count = {}
         for (f, e) in bitext:
             for f_i in f:
-                Z = sum(dice_fe[(f_i, e_j)] for e_j in e)
+                Z = sum(dice_fe.get((f_i, e_j), 1./default) for e_j in e)
                 for e_j in e:
-                    c = dice_fe[(f_i, e_j)]/Z
+                    c = dice_fe.get((f_i, e_j), 1./default)/Z
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     e_count[e_j] = e_count.get(e_j, 0.0)+c
         loss = 0.0
         for f_i, e_j in fe_count:
+            loss = max(abs(dice_fe.get((f_i, e_j), 1./default)-fe_count[(f_i, e_j)] / e_count[e_j]), loss)
             dice_fe[(f_i, e_j)] = fe_count[(f_i, e_j)] / e_count[e_j]
-            loss = max(abs(dice_fe[(f_i, e_j)]-fe_count[(f_i, e_j)] / e_count[e_j]), loss)
-        sys.stderr.write("; loss is {0:2.5f}.\n".format(loss))
+        sys.stderr.write(": loss is {0:2.5f}.\n".format(loss))
 
 
 def train_symmetric(dice, dice_ef, dice_fe):
     '''train posterior'''
-    for k in range(2):
+    for k in xrange(EPOCH):
         sys.stderr.write("train_ef: Iteration {0}".format(k))
         e_count = defaultdict(float)
         f_count = defaultdict(float)
@@ -82,16 +84,15 @@ def train_symmetric(dice, dice_ef, dice_fe):
             for (f_i, e_j) in x:
                 Z1 = sum(dice_fe[(f_i, e_j)] for e_j in e)
                 Z2 = sum(dice_ef[(f_i, e_j)] for f_i in f)
-                c = (dice_fe[(f_i, e_j)]*dice_ef[(f_i, e_j)])/(Z1*Z2)
                 for e_prime in e:
-                    fe_count[(f_i, e_prime)] += c
-                    e_count[e_prime] += c
+                    fe_count[(f_i, e_prime)] += dice_fe[(f_i, e_j)]/Z1
+                    e_count[e_prime] += dice_fe[(f_i, e_j)]/Z1
                 for f_prime in f:
-                    ef_count[(f_prime, e_j)] += c
-                    f_count[f_prime] += c
+                    ef_count[(f_prime, e_j)] += dice_ef[(f_i, e_j)]/Z2
+                    f_count[f_prime] += dice_ef[(f_i, e_j)]/Z2
 
         loss = 0.0
-        for f_i, e_j in set(fe_count.keys()) | set(fe_count.keys()):
+        for f_i, e_j in fe_count:
             loss = max(abs(dice_ef[(f_i, e_j)]-fe_count[(f_i, e_j)] / f_count[f_i]), loss)
             dice[(f_i, e_j)] = max(fe_count[(f_i, e_j)] / f_count[f_i] if f_i in f_count else 0,
                                    ef_count[(f_i, e_j)] / e_count[e_j] if e_j in e_count else 0)
@@ -134,19 +135,35 @@ def decode2(dice):
             sys.stdout.write("%i-%i " % (i, bestj))
         sys.stdout.write("\n")
 
+
+def decode3(dice_ef, dice_fe):
+    '''decode best alignment based on EM'''
+    delta = 0.1
+    for f, e in bitext:
+        for i, f_i in enumerate(f):
+            bestp, bestj = 0.0, 0.0
+            for j, e_j in enumerate(e):
+                if (f_i, e_j) in dice_ef and (f_i, e_j) in dice_fe:
+                    pr = dice_ef[(f_i, e_j)]*dice_fe[(f_i, e_j)]
+                    if pr > bestp:
+                        bestp = pr
+                        bestj = j
+            sys.stdout.write("%i-%i " % (i, bestj))
+        sys.stdout.write("\n")
+
 def main():
     '''main'''
     sys.stderr.write("Training with expected maximization algorithm...\n")
     e_vocab = len(set([w for s in open(e_data) for w in s.strip().split()]))
     f_vocab = len(set([w for s in open(f_data) for w in s.strip().split()]))
-    dice_ef = defaultdict(lambda: 1.0/e_vocab)
-    dice_fe = defaultdict(lambda: 1.0/f_vocab)
-    dice = defaultdict(lambda: 1.0/(e_vocab*f_vocab))
-    #train_ef(dice_ef)
-    #train_fe(dice_fe)
-    train_symmetric(dice, dice_ef, dice_fe)
-    #decode1(dice_ef, dice_fe)
-    decode2(dice)
+    dice_ef = {}
+    dice_fe = {}
+    #dice = defaultdict(lambda: 1.0/(e_vocab*f_vocab))
+    train_ef(dice_ef, e_vocab)
+    train_fe(dice_fe, f_vocab)
+    #train_symmetric(dice, dice_ef, dice_fe)
+    decode3(dice_ef, dice_fe)
+    #decode2(dice)
 
 
 if __name__ == "__main__":
