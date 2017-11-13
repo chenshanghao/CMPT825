@@ -30,12 +30,21 @@ v_e = len(set(vecb_e))
 fe_t = defaultdict(lambda: 1./v_f)
 ef_t = defaultdict(lambda: 1./v_e)
 
+
+
 # train p(f|e)
 for _ in range(5):
     sys.stderr.write("Iteration {} with P(f|e)\n".format(_+1))
     e_count = defaultdict(float)
     fe_count = defaultdict(float)
+
+    # variables for estimating a
+    # count_a = defaultdict(float)
+    # total_a = defaultdict(float)
+    # s_total = defaultdict(float)
+
     for (n, (f, e)) in enumerate(bitext):
+        l_e, l_f = len(e), len(f)
         for f_i in set(f):
             z = sum((fe_t[(f_i, e_j)] for e_j in set(e)))
             for e_j in set(e):
@@ -48,8 +57,8 @@ for _ in range(5):
 
     for (k, (f_i, e_j)) in enumerate(fe_count.iterkeys()):
         fe_t[(f_i, e_j)] = fe_count[(f_i, e_j)]/e_count[e_j]
-    del e_count
-    del fe_count
+    #del e_count
+    #del fe_count
 
 # train p(e|f)
 for _ in range(5):
@@ -69,9 +78,22 @@ for _ in range(5):
 
     for (k, (e_i, f_j)) in enumerate(ef_count.iterkeys()):
         ef_t[(e_i, f_j)] = ef_count[(e_i, f_j)]/f_count[f_j]
-    del f_count
-    del ef_count
+    #del f_count
+    #del ef_count
 
+# add smoothing  temporary
+n = 0.01
+V = 10000
+
+for (f, e) in fe_count:
+    fe_t[f, e] = (fe_count[(f, e)] + n)/ (e_count[e] + n*V)
+for (e, f) in ef_count:
+    ef_t[e, f] = (ef_count[(e, f)] + n) / (f_count[f] + n*V)
+
+del(fe_count)
+del(ef_count)
+del(e_count)
+del(f_count)
 
 def grow_diag(e, f, f2e, e2f):
     # this method can improve recall which lower precision
