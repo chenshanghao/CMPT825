@@ -1,6 +1,3 @@
-'''
-this code will align words between different languages
-'''
 #!/usr/bin/env python
 #pylint: disable = I0011, E0401, C0103, C0321, W1401, C0301
 import collections
