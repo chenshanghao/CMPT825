@@ -26,8 +26,9 @@ if OPTS.logfile:
     logging.basicConfig(filename=OPTS.logfile, filemode='w', level=logging.INFO)
 
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))[:OPTS.num_sents]]
-EPOCH = 3
+EPOCH = 5
 N = OPTS.num_sents
+smooth_n = 0.01
 
 class _keydefaultdict(collections.defaultdict):
     '''define a local function for uniform probability initialization'''
@@ -114,6 +115,7 @@ def init():
 
     return t_k
 
+
 def train_ef_ibm1(params_ef, default):
     '''train e|f'''
     for k in xrange(EPOCH):
@@ -126,11 +128,8 @@ def train_ef_ibm1(params_ef, default):
                     c = params_ef.get((f_i, e_j), 1./default)/Z
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     f_count[f_i] = f_count.get(f_i, 0.0)+c
-        #loss = 0.0
         for f_i, e_j in fe_count:
-            #loss = max(abs(dice_ef.get((f_i, e_j), 1./default)-fe_count[(f_i, e_j)] / f_count[f_i]), loss)
-            params_ef[(f_i, e_j)] = fe_count[(f_i, e_j)] / f_count[f_i]
-        #sys.stderr.write(": loss is {0:2.5f}.\n".format(loss))
+            params_ef[(f_i, e_j)] = (fe_count[(f_i, e_j)]+smooth_n) / (f_count[f_i]+smooth_n*N)
 
 def train_fe_ibm1(params_fe, default):
     '''train f|e'''
@@ -144,11 +143,9 @@ def train_fe_ibm1(params_fe, default):
                     c = params_fe.get((f_i, e_j), 1./default)/Z
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     e_count[e_j] = e_count.get(e_j, 0.0)+c
-        #loss = 0.0
         for f_i, e_j in fe_count:
-            #loss = max(abs(dice_fe.get((f_i, e_j), 1./default)-fe_count[(f_i, e_j)] / e_count[e_j]), loss)
-            params_fe[(f_i, e_j)] = fe_count[(f_i, e_j)] / e_count[e_j]
-        #sys.stderr.write(": loss is {0:2.5f}.\n".format(loss))
+            params_fe[(f_i, e_j)] = (fe_count[(f_i, e_j)]+smooth_n) / (e_count[e_j]+smooth_n*N)
+
 
 def key_fun(key):
     ''' default_factory function for keycollections.defaultdict '''
@@ -169,7 +166,7 @@ def train_fe_ibm2(params_fe, default, align):
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     e_count[e_j] = e_count.get(e_j, 0.0)+c
         for f_i, e_j in fe_count:
-            params_fe[(f_i, e_j)] = fe_count[(f_i, e_j)] / e_count[e_j]
+            params_fe[(f_i, e_j)] = (fe_count[(f_i, e_j)]+smooth_n) / (e_count[e_j]+smooth_n*N)
 
 def train_ef_ibm2(params_ef, default, align):
     '''add alignment params'''
@@ -185,7 +182,7 @@ def train_ef_ibm2(params_ef, default, align):
                     fe_count[(f_i, e_j)] = fe_count.get((f_i, e_j), 0.0)+c
                     f_count[f_i] = f_count.get(f_i, 0.0)+c
         for f_i, e_j in fe_count:
-            params_ef[(f_i, e_j)] = fe_count[(f_i, e_j)] / f_count[f_i]
+            params_ef[(f_i, e_j)] = (fe_count[(f_i, e_j)]+smooth_n) / (f_count[f_i]+smooth_n*N)
 
 def grow_diag(e, f, f2e, e2f):
     '''this method can improve recall which lower precision'''
