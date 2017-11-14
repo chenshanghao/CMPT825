@@ -37,3 +37,4 @@ The core solution to this language alignment is to use training data to find a m
     * Use IBM model 1 output as model 2 input initilization.
 
 * Smoothing TODO: @Shanghao
+tr(t|s) = (C(t,s) + n) / ((C(s)) + n * |V|)
