@@ -4,7 +4,6 @@ this code will align words between different languages
 #!/usr/bin/env python
 #pylint: disable = I0011, E0401, C0103, C0321, W1401, C0301
 import collections
-import decimal
 import math
 import logging
 import optparse
@@ -48,12 +47,12 @@ class _keydefaultdict(collections.defaultdict):
 
 def init():
     '''TODO: too much mem, horrible 8.8G isn't enough new init method'''
-    e_word = [w for i,s in enumerate(open(e_data)) if i < N for w in s.strip().split()]
-    f_word = [w for i,s in enumerate(open(f_data)) if i < N for w in s.strip().split()]
+    e_word = [w for i, s in enumerate(open(e_data)) if i < N for w in s.strip().split()]
+    f_word = [w for i, s in enumerate(open(f_data)) if i < N for w in s.strip().split()]
     num_e = len(e_word)
     num_f = len(f_word)
-    e_word_count =  dict(collections.Counter(e_word))
-    f_word_count =  dict(collections.Counter(f_word))
+    e_word_count = dict(collections.Counter(e_word))
+    f_word_count = dict(collections.Counter(f_word))
     fe_word_count = collections.defaultdict(int)
 
     # total occurrence number of single f word and single e word
@@ -62,7 +61,7 @@ def init():
     for (f, e) in bitext:
         for f_i in f:
             for e_j in e:
-                fe_word_count[(f_i,e_j)] += 1
+                fe_word_count[(f_i, e_j)] += 1
     total_fe = sum(fe_word_count.values())
 
     # total occurrence number of (f, e) respect to a specific f word and all other e words
@@ -188,6 +187,29 @@ def train_ef_ibm2(params_ef, default, align):
         for f_i, e_j in fe_count:
             params_ef[(f_i, e_j)] = fe_count[(f_i, e_j)] / f_count[f_i]
 
+def grow_diag(e, f, f2e, e2f):
+    '''this method can improve recall which lower precision'''
+    neighboring = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
+    alignment = e2f & f2e
+    union_alignment = e2f | f2e
+    keep_loop = True
+    while keep_loop:
+        keep_loop = False
+        new_alignment = []
+        aligned_i, aligned_j = zip(*alignment)
+        for i in xrange(len(f)):
+            for j in xrange(len(e)):
+                if (i, j) in alignment:
+                    new_alignment = [
+                        (new_i, new_j) for (new_i, new_j) in
+                        [(i+d_i, j+d_j) for (d_i, d_j) in neighboring]
+                        if (new_i not in aligned_i or new_j not in aligned_j) and (new_i, new_j) in union_alignment
+                    ]
+                if new_alignment:
+                    keep_loop = True
+                    alignment.update(new_alignment)
+    return alignment
+
 def decode1(align_ef, params_ef, align_fe, params_fe):
     '''decode best alignment based on EM'''
     Z_align_ef = sum(align_ef.values())
@@ -217,29 +239,6 @@ def decode1(align_ef, params_ef, align_fe, params_fe):
                 sys.stdout.write("%i-%i " % (i, j))
         sys.stdout.write("\n")
 
-def grow_diag(e, f, f2e, e2f):
-    '''this method can improve recall which lower precision'''
-    neighboring = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
-    alignment = e2f & f2e
-    union_alignment = e2f | f2e
-    keep_loop = True
-    while keep_loop:
-        keep_loop = False
-        new_alignment = []
-        aligned_i, aligned_j = zip(*alignment)
-        for i in xrange(len(f)):
-            for j in xrange(len(e)):
-                if (i, j) in alignment:
-                    new_alignment = [
-                        (new_i, new_j) for (new_i, new_j) in
-                        [(i+d_i, j+d_j) for (d_i, d_j) in neighboring]
-                        if (new_i not in aligned_i or new_j not in aligned_j) and (new_i, new_j) in union_alignment
-                    ]
-                if new_alignment:
-                    keep_loop = True
-                    alignment.update(new_alignment)
-    return alignment
-
 def decode2(params_fe):
     '''decode best alignment based on EM'''
     for f, e in bitext:
@@ -263,7 +262,7 @@ def main():
     #train_ef(params_ef, e_vocab)
     train_ef_ibm1(params_ef, e_vocab)
     train_fe_ibm1(params_fe, f_vocab)
-    
+
     align_fe = _keydefaultdict(key_fun)
     for f, e in bitext:
         for i in xrange(len(f)):
