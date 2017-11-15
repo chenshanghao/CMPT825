@@ -43,7 +43,6 @@ The core solution to this language alignment is to use training data to find a m
         where C(t, s) is the expected count of s generating t, C(s) is the corresponding marginal count for s, |V | is the hypothesized size of the target vocabulary
         V , and n is the added count for each target word in V . |V | and n are both free parameters in this equation.
 
-
 * Other experimented methods for improvement
   * Add $null$ words to the source sentence
     IBM model 1 hypothesizes one $null$ word per sentence, which causes $null$ word alignment rarely occur in the highest probability alignment. We address this problem by adding extra $null$ words to source sentence, but neither adding the same number of $null$ words to every sentence or setting the number of $null$ words be proportional to the length of the sentence generate better result compared to without extra $null$ word, so we abandon this method.
