@@ -39,6 +39,10 @@ The core solution to this language alignment is to use training data to find a m
     * Use IBM model 1 output as model 2 input initialization.
 
 * Smoothing TODO: @Shanghao
+   * tr(t|s) = (C(t,s) + n) / ((C(s)) + n * |V|)
+        where C(t, s) is the expected count of s generating t, C(s) is the corresponding marginal count for s, |V | is the hypothesized size of the target vocabulary
+        V , and n is the added count for each target word in V . |V | and n are both free parameters in this equation.
+
 
 * Other experimented methods for improvement
     * Add $null$ words to the source sentence
