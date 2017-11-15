@@ -27,7 +27,9 @@ The core solution to this language alignment is to use training data to find a m
 
 * Modify the baseline from 'go over each word in a sentence' to 'go over the word set of this sentence'. The intuition behind this is simple, IBM model 1 only considers word pair, and pays no attention to the position. Thus, set will quicken training decently.
 
-* Diagonal alignment TODO: @SHUO
+* Grow diagonal alignment:
+    * The method iterates over intersection alignments of two models and adds neighbor alighment to intersection if it is in union alignments of tow models.
+    * The method can improve recall score to reduce AER.
 
 * IBM model 2
     * Given a French sentence $\bold{f}=f_1...f_n$ and English sentence $\bold{e}=e_1...e_m$, we model alignments of the form $\bold{a}=a_1...a_n$, where each $a_i$ takes a value from 1 to $m$, denoting the index of the English word to which the $i$th French word is aligned. Lexical translation parameters $t$ and this $a$ work together to provide a possibility for each word pair.
