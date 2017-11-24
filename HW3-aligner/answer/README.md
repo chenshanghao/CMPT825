@@ -6,7 +6,7 @@ Below python script will run for about 80 minutes, during which consume 7.5G mem
 
 ```bash
 python answer/align.py -p europarl -f de -n 100000 > output.a
-head -1000 output.a > upload.a
+head -100000 output.a > upload.a
 ```
 
 ## Notes and motivations
@@ -38,18 +38,17 @@ The core solution to this language alignment is to use training data to find a m
     \[h(i,j,m,n)=-|\frac{i}{n}-\frac{j}{m}|\]
     * Use IBM model 1 output as model 2 input initialization.
 
-* Smoothing TODO: @Shanghao
+* Smoothing
    * tr(t|s) = (C(t,s) + n) / ((C(s)) + n * |V|)
         where C(t, s) is the expected count of s generating t, C(s) is the corresponding marginal count for s, |V | is the hypothesized size of the target vocabulary
         V , and n is the added count for each target word in V . |V | and n are both free parameters in this equation.
 
-
 * Other experimented methods for improvement
-    * Add $null$ words to the source sentence
-        IBM model 1 hypothesizes one $null$ word per sentence, which causes $null$ word alignment rarely occur in the highest probability alignment. We address this problem by adding extra $null$ words to source sentence, but neither adding the same number of $null$ words to every sentence or setting the number of $null$ words be proportional to the length of the sentence generate better result compared to without extra $null$ word, so we abandon this method.
+  * Add $null$ words to the source sentence
+    IBM model 1 hypothesizes one $null$ word per sentence, which causes $null$ word alignment rarely occur in the highest probability alignment. We address this problem by adding extra $null$ words to source sentence, but neither adding the same number of $null$ words to every sentence or setting the number of $null$ words be proportional to the length of the sentence generate better result compared to without extra $null$ word, so we abandon this method.
 
-    * Initialize the parameters with log-likelihood-ratio
-        To test the practicability of finding initial position that take us closer to the optimal parameter values for alignment accuracy, we use a heuristic model based on the log-likelihood-ratio ($\bold{LLR}) statistic, the statistic formula is defined as following:
-       \[\sum_{f_i?\in\{f_i, \bar{f_i}\}}\sum_{e_j?\in\{e_j, \bar{e_j}\}} C(f_i?, e_j?)\times log\frac{p(f_i?|e_j?)}{p(f_i?)}\]
-        In this formula, ${f_i} and ${e_j} are two words in an aligned target and source sentence pair, $C(f_i?, e_j?), p(f_i?|e_j?), p(f_i?)$ are the joint frequency and maximum likelihood estimates of the corresponding marginal and conditional probabilities of the different possible combination of ${f_i} and ${e_j} occurring and not occurring.
-        For 100,000 sentences, there are more than 700,000 word pairs of ${f_i} and ${e_j}, it costs more than 3 hours to compute the statistic for each (${f_i}, ${e_j}), therefore we consider this method as a option and research other more efficient methods.
+  * Initialize the parameters with log-likelihood-ratio
+    To test the practicability of finding initial position that take us closer to the optimal parameter values for alignment accuracy, we use a heuristic model based on the log-likelihood-ratio $\bold{LLR}$ statistic, the statistic formula is defined as following:
+    \[\sum_{f_i?\in\{f_i, \bar{f_i}\}}\sum_{e_j?\in\{e_j, \bar{e_j}\}} C(f_i?, e_j?)\times log\frac{p(f_i?|e_j?)}{p(f_i?)}\]
+    In this formula, ${f_i} and ${e_j} are two words in an aligned target and source sentence pair, $C(f_i?, e_j?), p(f_i?|e_j?), p(f_i?)$ are the joint frequency and maximum likelihood estimates of the corresponding marginal and conditional probabilities of the different possible combination of ${f_i} and ${e_j} occurring and not occurring.
+    For 100,000 sentences, there are more than 700,000 word pairs of ${f_i} and ${e_j}, it costs more than 3 hours to compute the statistic for each (${f_i}, ${e_j}), therefore we consider this method as a option and research other more efficient methods.
