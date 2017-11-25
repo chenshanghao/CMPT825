@@ -1,12 +1,15 @@
 # Run commands, notes and motivations
+python
 
 ## Run commands
 
-Below python script will run for about 80 minutes, during which consume 7.5G memory at most.
+By setting stack-size = 1,000 and translations-per-phrase = 20, we get total corpus log probability (LM+TM) = -1300.526262.
 
-```bash
-python answer/decoder.py > output
-```
+The commands used to run program are as below:
+
+python answer/decodepy -s 1000 -k 20 > output
+python score-decoder.py < output
+
 
 ## Notes and motivations
 
