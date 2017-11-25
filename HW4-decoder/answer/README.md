@@ -1,4 +1,5 @@
 # Run commands, notes and motivations
+python
 
 ## Run commands
 
