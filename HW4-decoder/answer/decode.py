@@ -2,6 +2,8 @@
 import optparse
 import sys
 import models
+import copy
+import time
 from collections import namedtuple
 
 optparser = optparse.OptionParser()
@@ -9,71 +11,199 @@ optparser.add_option("-i", "--input", dest="input", default="data/input", help="
 optparser.add_option("-t", "--translation-model", dest="tm", default="data/tm", help="File containing translation model (default=data/tm)")
 optparser.add_option("-l", "--language-model", dest="lm", default="data/lm", help="File containing ARPA-format language model (default=data/lm)")
 optparser.add_option("-n", "--num_sentences", dest="num_sents", default=sys.maxint, type="int", help="Number of sentences to decode (default=no limit)")
-optparser.add_option("-k", "--translations-per-phrase", dest="k", default=1, type="int", help="Limit on number of translations to consider per phrase (default=1)")
-optparser.add_option("-s", "--stack-size", dest="s", default=1, type="int", help="Maximum stack size (default=1)")
-optparser.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False,  help="Verbose mode (default=off)")
+optparser.add_option("-k", "--translations-per-phrase", dest="k", default=50, type="int", help="Limit on number of translations to consider per phrase (default=1)")
+optparser.add_option("-s", "--stacks-size", dest="s", default=10000, type="int", help="Maximum stack size (default=10000)")
+optparser.add_option("-d", "--disorder", dest="disord", default=10, type="int", help="Disorder limit (default=10)")
+# still has problem on beam search. So we didn't add detaild code. The test code is in sha_decode.
+optparser.add_option("-w", "--beam width", dest="bwidth", default=5.0,  help="beamwidth")
+# we didn't test this. It may be help us improve
+optparser.add_option("-p", "--distortion-penalty", dest="n", default=0.0, type="float",  help="distortion penalty parameter variable")  
+
 opts = optparser.parse_args()[0]
 
+#Initialize language model
 tm = models.TM(opts.tm, opts.k)
 lm = models.LM(opts.lm)
 french = [tuple(line.strip().split()) for line in open(opts.input).readlines()[:opts.num_sents]]
-
-# tm should translate unknown words as-is with probability 1
-for word in set(sum(french,())):
-  if (word,) not in tm:
-    tm[(word,)] = [models.phrase(word, 0.0)]
-
-def calculate_new_hypothesis(h, at_end, phrases):
-  logprob = h.logprob
-  lm_state = h.lm_state
-  last_hypothesis = h
-  for phrase in phrases:
-    logprob += phrase.logprob
-    for word in phrase.english.split():
-      (lm_state, word_logprob) = lm.score(lm_state, word)
-      logprob += word_logprob
-    if phrase == phrases[-1]:
-      logprob += lm.end(lm_state) if at_end else 0.0
-    new_hypothesis = hypothesis(logprob, lm_state, last_hypothesis, phrase)
-    last_hypothesis = new_hypothesis
-  return (lm_state, new_hypothesis)
-
-sys.stderr.write("Decoding %s...\n" % (opts.input,))
-for f in french:
-  # The following code implements a monotone decoding
-  # algorithm (one that doesn't permute the target phrases).
-  # Hence all hypotheses in stacks[i] represent translations of 
-  # the first i words of the input sentence. You should generalize
-  # this so that they can represent translations of *any* i words.
-  hypothesis = namedtuple("hypothesis", "logprob, lm_state, predecessor, phrase")
-  initial_hypothesis = hypothesis(0.0, lm.begin(), None, None)
-  stacks = [{} for _ in f] + [{}]       # stacks[i] holds hypotheses for i words decoded
-  stacks[0][lm.begin()] = initial_hypothesis
-  for i, stack in enumerate(stacks[:-1]):
-    for h in sorted(stack.itervalues(),key=lambda h: -h.logprob)[:opts.s]: # prune
-      for j in xrange(i+1,len(f)+1):        # [i,j] words in the sentence
-        for k in xrange(i, j):
-          if k == i and f[i:j] in tm:       # simple case as default
-            for phrase in tm[f[i:j]]:
-              (lm_state, new_hypothesis) = calculate_new_hypothesis(h, j == len(f), [phrase])
-              if lm_state not in stacks[j] or stacks[j][lm_state].logprob < new_hypothesis.logprob: # second case is recombination
-                stacks[j][lm_state] = new_hypothesis
-          elif f[i:k] in tm and f[k:j] in tm:    # reordering case
-            for phrase1 in tm[f[i:k]]:
-              for phrase2 in tm[f[k:j]]:
-                (lm_state, new_hypothesis) = calculate_new_hypothesis(h, j == len(f), [phrase2, phrase1])
-                if lm_state not in stacks[j] or stacks[j][lm_state].logprob < new_hypothesis.logprob:
-                  stacks[j][lm_state] = new_hypothesis  
-  winner = max(stacks[-1].itervalues(), key=lambda h: h.logprob)
+hypothesis = namedtuple("hypothesis", "lm_state, logprob, coverage, end, predecessor, phrase, french")
+EngFre = namedtuple("EngFre", "english, french")
 
 
-  def extract_english(h): 
-    return "" if h.predecessor is None else "%s%s " % (extract_english(h.predecessor), h.phrase.english)
-  print extract_english(winner)
+##################################
+# Useful functions from score-decoder.py
+def bitmap(sequence):
+    """ Generate a coverage bitmap for a sequence of indexes """
+    return reduce(lambda x,y: x|y, map(lambda i: long('1'+'0'*i,2), sequence), 0)
 
-  if opts.verbose:
-    def extract_tm_logprob(h):
-      return 0.0 if h.predecessor is None else h.phrase.logprob + extract_tm_logprob(h.predecessor)
-    tm_logprob = extract_tm_logprob(winner)
-    sys.stderr.write("LM = %f, TM = %f, Total = %f\n" % 
-      (winner.logprob - tm_logprob, tm_logprob, winner.logprob))
+def onbits(b):
+    """ Count number of on bits in a bitmap """
+    return 0 if b==0 else (1 if b&1==1 else 0) + onbits(b>>1)
+
+def prefix1bits(b):
+    """ Count number of bits encountered before first 0 """
+    return 0 if b&1==0 else 1+prefix1bits(b>>1)
+
+def last1bit(b):
+    """ Return index of highest order bit that is on """
+    return 0 if b==0 else 1+last1bit(b>>1)
+
+# Utility functions
+def bitmap2str(b, n):
+  """ Generate a length-n string representation of bitmap b """
+  return bin(b)[:1:-1].ljust(n,'0')
+
+def pos0bits(b, n):
+  """Return a list of index of bits that is 0 of length-n bitmap b"""
+  return [i for i, ch in enumerate(bitmap2str(b, n)) if ch == '0']
+
+def get_list(h, output_list):
+    if h.predecessor is not None:
+        get_list(h.predecessor, output_list)
+        output_list.append(EngFre(h.phrase.english, h.french))
+
+# Calculate the list's probility 
+def get_prob(calculate_list):
+    stance = []
+    for EngFre in calculate_list:
+        # print EngFre
+        stance += (EngFre.english.split())
+    stance = tuple(stance)
+    lm_state = (stance[0],)
+    score = 0.0
+    for word in stance[1:]:
+        (lm_state, word_score) = lm.score(lm_state, word)
+        score += word_score
+    return score
+
+# compare the probity
+def prob_compare(now_list, current_best_list):
+    current_best_list_prob = get_prob(current_best_list)
+    now_list_prob = get_prob(now_list) 
+    if now_list_prob > current_best_list_prob:
+        return True
+    else:
+        return False 
+
+# Citation.  This function is learned from former 825 student Hexiang Hu.
+def get_best_adjacent_phrase(eng_list):
+    while True:
+        current_best_list = copy.deepcopy(eng_list)
+
+        # insert calculating compare
+        for i in range(1, len(eng_list) - 1):
+            for j in range(1, i):
+                now_list = copy.deepcopy(eng_list)
+                now_list.pop(i)
+                now_list.insert(j, eng_list[i])
+                if prob_compare(now_list, current_best_list) == True:
+                    current_best_list = now_list
+
+            for k in range(i+2, len(eng_list) -1):
+                now_list = copy.deepcopy(eng_list)  
+                now_list.insert(k, eng_list[i])
+                now_list.pop(i)
+                if prob_compare(now_list, current_best_list) == True:
+                    current_best_list = now_list
+        
+        # swap calculating compare
+        for i in range(1, len(eng_list) - 2):
+            for j in range(i + 1, len(eng_list)-1):
+                now_list = copy.deepcopy(eng_list)
+                now_list[i], now_list[j] = now_list[j], now_list[i]
+                if prob_compare(now_list, current_best_list) == True:
+                    current_best_list = now_list
+        # replace
+        for i in range(1, len(eng_list) - 1):
+            if eng_list[i].french in tm:
+                for engPhrase in tm[ eng_list[i].french ]:
+                    now_list = copy.deepcopy(eng_list)
+                    now_list[i] = EngFre(engPhrase.english, now_list[i].french)
+                    if prob_compare(now_list, current_best_list) == True:
+                        current_best_list = now_list
+
+        # if there is nothing change than break the circle
+        current_best_list_prob = get_prob(current_best_list) 
+        eng_list_prob = get_prob(eng_list)
+        if current_best_list_prob == eng_list_prob:
+            return current_best_list
+        else:
+            print(current_best_list_prob)
+            print(eng_list_prob)
+            eng_list = current_best_list
+
+def completable(b, d):
+  """Return true if the distortion limit doesn't prevents a full translation"""
+  return (last1bit(b) - prefix1bits(b)) <= d
+
+
+def extract_english(h):
+  """Return the current English string of hypothesis h"""
+  return "" if h.predecessor is None else "%s%s " % (extract_english(h.predecessor), h.phrase.english)
+
+def main():
+    
+    # calculate time for this algorithm
+    start = time.time()
+    # tm should translate unknown words as-is with probability 1
+    for word in set(sum(french,())):
+        if (word,) not in tm:
+            tm[(word,)] = [models.phrase(word, 0.0)]
+
+    total_prob = 0
+    sys.stderr.write("Decoding %s...\n" % (opts.input,))
+
+    # The following code is trying to find the best sentence
+    for index,f in enumerate(french):
+        # initialize hypothesis stack 
+        initial_hypothesis = hypothesis(lm.begin(), 0.0, 0, 0, None, None, None)
+        stacks = [{} for _ in f] + [{}]
+        stacks[0][lm.begin(), 0, 0] = initial_hypothesis
+        for i, stack in enumerate(stacks[:-1]):
+            for h in sorted(stack.itervalues(),key=lambda h: -h.logprob)[:opts.s]: 
+                fopen = prefix1bits(h.coverage)
+                for j in xrange(fopen,min(fopen+1+opts.disord, len(f)+1)):
+                    for k in xrange(j+1, len(f)+1):
+                        if f[j:k] in tm:
+                            if (h.coverage & bitmap(range(j, k))) == 0:
+                                for phrase in tm[f[j:k]]:
+
+                                    lm_prob = 0
+                                    lm_state = h.lm_state
+
+                                    for word in phrase.english.split():
+                                        (lm_state, prob) = lm.score(lm_state, word)
+                                        lm_prob += prob
+                                    lm_prob += lm.end(lm_state) if k == len(f) else 0.0
+                                    coverage = h.coverage | bitmap(range(j, k))
+
+                                    #update the log logprob
+                                    logprob = h.logprob + lm_prob + phrase.logprob 
+                                    logprob += opts.n * abs(h.end + 1 - j)    #add penality
+
+                                    #create new hypothesis
+                                    new_hypothesis = hypothesis(lm_state, logprob, coverage, k, h, phrase, f[j:k])
+
+                                    # add the new hypothesis to the stack
+                                    num = onbits(coverage)
+                                    if (lm_state, coverage, k) not in stacks[num] or new_hypothesis.logprob > stacks[num][lm_state, coverage, k].logprob:
+                                        stacks[num][lm_state, coverage, k] = new_hypothesis
+
+        winner = max(stacks[-1].itervalues(), key=lambda h: h.logprob)
+        eng_list = [EngFre("<s>", ("<s>"))]
+        get_list(winner, eng_list)
+        eng_list.append(EngFre("</s>", ("</s>")))
+
+        sys.stderr.write("Starting brute-force on setence %d ...\n" % index)
+
+        # reordering adjacent phrases. brute-force search
+        eng_list = get_best_adjacent_phrase(eng_list)
+
+        for word in eng_list[1:-1]:
+            print word.english
+
+        sys.stderr.write("#{0}:{2} - {1}\n".format(index, ' '.join([ef.english for ef in eng_list]) , get_prob(eng_list)))
+        end=time.time()
+        sys.stderr.write('Elapsed Time: {}'.format(end-start))
+
+if __name__ == "__main__":
+    main()
