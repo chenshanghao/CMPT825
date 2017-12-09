@@ -1,0 +1,514 @@
+%
+% File acl2015.tex
+%
+% Contact: car@ir.hit.edu.cn, gdzhou@suda.edu.cn
+%%
+%% Based on the style files for ACL-2014, which were, in turn,
+%% Based on the style files for ACL-2013, which were, in turn,
+%% Based on the style files for ACL-2012, which were, in turn,
+%% based on the style files for ACL-2011, which were, in turn, 
+%% based on the style files for ACL-2010, which were, in turn, 
+%% based on the style files for ACL-IJCNLP-2009, which were, in turn,
+%% based on the style files for EACL-2009 and IJCNLP-2008...
+
+%% Based on the style files for EACL 2006 by 
+%%e.agirre@ehu.es or Sergi.Balari@uab.es
+%% and that of ACL 08 by Joakim Nivre and Noah Smith
+
+\documentclass[11pt]{article}
+\usepackage{acl2015}
+\usepackage{times}
+\usepackage{url}
+\usepackage{latexsym}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{letterpaper}
+%\setlength\titlebox{5cm}
+
+% You can expand the titlebox if you need extra space
+% to show all the authors. Please do not make the titlebox
+% smaller than 5cm (the original size); we will check this
+% in the camera-ready version and ask you to change it back.
+
+
+\title{Analysis Different Automatic Evaluation Algorithm for Machine Translation  }
+
+\author{Fan Liu, Shanghao Chen, Shuo Huang, Yingxiu Chen   \\
+  School of Computing Science, Simon Fraser University \\
+  Burnaby, BC, Canada V5A1S6 \\
+  \{liufanl, sca243, sha185, yingxiuc\}@sfu.ca \\
+  }
+
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+This paper presents the final project of CMPT825, which aims to improve the accuracy of automatic evaluation of machine translations. We experimented a group of machine translation evaluation algorithms, including METEOR, BLEU, GLEU, NIST, ROSE, and LEPOR, and tested their result on the local computer and Leaderboard. After experimenting with different algorithms and comparing a set of different parameters, we concluded the best results of each algorithm. In the end, we introduced the possible ways to improve the accuracy of different algorithms.    
+\end{abstract}
+
+
+
+
+\section{Introduction}
+
+In recent years, machine translation is a cutting-edge topic in the Artificial Intelligence research, in the meanwhile, the development of automatic evaluation of machine translations with high accuracy becomes another crucial challenge. In this project, we were given a database including more than 25,000 records, each record consist of two machine translations as hypothesis sentence and one human translation as reference sentence. We developed an automatic evaluation system based on this database, and recorded the competition result of two machine translations as -1 or 1 if one of them is better than the other one, or 0 if they are equally good. Finally, we compared the output of our automatic evaluation system with the given true result to measure its accuracy. In addition, we used another larger given database, which includes more than 50,000 records, to train several models for the system.
+
+\section{Motivation}
+Among all algorithms we chose for this project, METEOR metric is the simplest one, and it generated a test score of 0.538 using the algorithm mentioned in the Agarwal and Lavie's article~\cite{StatMT:07}. To improve the performance of evaluator, we tested some variants of METEOR, such as BLEU, GLEU, NIST, and LEPOR. The reason for using these metrics is that METEOR is a word-to-word method which means it only matches unigrams, while the other metrics we selected have the capacity to handle \emph{n-gram} word tokens. This would be an advantage compared to Meteor metric and is very likely to improve the accuracy. The metrics mentioned above are all heuristic methods, as a comparison, we also tried to use a supervised method, Rose. On the basis of Song and Cohn's research, it had been proved to have a better result than heuristic methods \cite{WMT:11}.
+
+\section{Approach}
+In this project, we experimented METEOR, BLEU, GLEU, NIST, LEPOR, and ROSE to improve the accuracy of automatic evaluation, the details of each method are explained in the following section.
+
+\subsection{METEOR}
+
+METEOR \cite{StatMT:08} is based on the harmonic mean of unigram precision and recall. For a pair of hypotheses sentence \emph{h} and reference sentences \emph{r}, we counted the words that occurred in both sentences and defined this number as $\left | h \cap e\right |$, then this number is used computed the unigram precision \emph{P(h, e)} and unigram recall \emph{R(h, e)} with following formula:
+
+\begin{equation}
+\emph{R}(h,e)=\frac{\left | h \cap e\right | }{\left | e \right |} 
+\end{equation}
+and 
+\begin{equation}
+ \emph{P}(h,e)=\frac{\left | h \cap e\right | }{\left | h \right |}
+\end{equation}
+
+where $\left | e \right |$ and $\left | h \right |$ are the number of unigram words in the hypotheses sentences \emph{h} and reference sentences \emph{r}, respectively.
+
+To find more accurate $\left | h \cap e\right |$, we used a mapping vector to keep track of all the words that have been mapped from the following three types of word matches:
+
+{\bf Exact Match}: Only those words that exactly the same in the two sentences were tagged as matched and recorded in the mapping vector.
+
+{\bf Stemmed Match}: The words that were not exactly matched in the hypotheses sentence and reference sentence were stemmed for stemmed matching. We used the Porter Stemmer algorithm~\cite{Porter:06} from the NLTK library for the purpose of stemming the word. The mapping vector was updated if previously unmatched words are matched after they are stemmed.
+
+{\bf Synonym Match}: The words that were left out after an exact match and stemmed watch were considered for synonym match. We used WordNet \emph{synset} library from the NLTK package to find all the synonyms for every unmatched word in the reference sentence. Then for every remaining unmatched word in the hypotheses sentence, we mapped it to the reference sentence if it is a synonym of a reference sentence word, and updated the mapping vector.
+
+After mapping all possible matching words, we found the minimum number of matched words chunks in the hypothesis sentence which are in the same word order as the reference sentence. The number of chunks \emph{c} and the number of unigram matches \emph{m} then are used to compute the chunk penalty in the harmonic mean of precision and recall with following formula:
+
+\begin{equation}
+\begin{aligned}
+\ell(h,e)=& \left ( 1-\gamma\left ( \frac{c}{m} \right )^{\beta} \right )\\&\times\frac{\emph{P}\left (h,e  \right )\cdot\emph{R}\left (h,e  \right )}{\left ( 1-\alpha \right )\emph{R}\left (h,e  \right )+\alpha\emph{P}\left (h,e  \right )}
+\end{aligned}
+\end{equation}
+
+where $\alpha$, $\beta$, $\gamma$ are tunable parameters. We experimented the system by tuning those values and found the following combination generates the best results:
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c | c |c |c| c|} 
+\hline
+$\alpha$ & $\beta$ & $\gamma$ & {\bf Dev Score} & {\bf Test Score }\\ [0.5ex]
+\hline
+0.73 & 1.00 & 0.21 & 0.523 & 0.538 \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:meteor} Best METEOR Result }
+\end{table}
+%---------------------------------------------------------------------
+
+\subsection{BLEU}
+BLEU \cite{ACL:02} adopts the method of comparing and counting the number of co-occurrence \emph{n-grams}. It counts the number of \emph{n-grams} words appearing in the hypothesis sentences and the reference sentences at the same time, and then gets the evaluation results by dividing the number of matching \emph{n-grams} by the number of words translated to. The computation formula for \emph{n-grams} precision on a multi-sentence test set is $p_{n}$ as following:
+
+\begin{equation}
+\begin{aligned}
+& p_{n} = 
+& \frac{\sum\limits_{C \in \{Cand\}} \sum\limits_{n-gram \in C} C_{clip}(n)}{\sum\limits_{C' \in \{Cand\}} \sum\limits_{n-gram' \in C'} C(n')}
+\end{aligned}
+\end{equation}
+
+
+$C_{clip}$ in the above formula means that one truncates each word’s count. The computation formula is as follows:
+
+\begin{equation}
+\begin{aligned}
+C_{clip}=min(Count,Max Re f Count)
+\end{aligned}
+\end{equation}
+
+Next, let  \emph{c} be the length of the candidate translation
+and  \emph{r} be the effective reference corpus length.
+We compute the brevity penalty BP as following formula:
+\begin{equation}
+\begin{aligned}
+ \emph{BP} = \left\{\begin{matrix}
+1 &  &\mbox{ if }\ {c > r}\\ 
+e^{(1-\frac{r}{c})} &  &\mbox{ if }\ {c \leq r}
+\end{matrix}\right. 
+\end{aligned}
+\end{equation}
+Then, we get the computation formula for BLEU score as follows:
+
+\begin{equation}
+\begin{aligned}
+\log\ & \mathrm{BLEU} = \\
+& \min \left ( 1- \frac{r}{c},\ 0 \right ) + \sum^N_{n=1}w_{n}\cdot \log p_{n}
+\end{aligned}
+\end{equation}
+$w_{n}$ means the weight matrix for \emph{n-gram}. In our best results for \emph{BLEU}, we only use unigram and bigram. In the end, we use additive smoothing to improve BLEU. The computation formula is as follows:
+
+\begin{equation}
+\begin{aligned}
+& \emph{n-gram}=& \left\{\begin{matrix}
+\frac{\epsilon}{C(n')} & {C_{clip}(n) = 0}\\
+\\
+\ 0 & {C(n')=0 } \\
+\\
+\frac{C{clip}(n)}{C(n')} & otherwise\\
+\end{matrix}\right.
+\end{aligned}
+\end{equation}
+
+We experimented with \emph{n-gram} weights and $\epsilon$ to find the following combination to be the best for our results:
+%---------------------------------------------------------------------
+%Vertical lines as column separators
+\begin{table}[h]
+\begin{center}
+ \begin{tabular}{|c|c|c|c|} 
+ \hline
+ $\left[w_{1}, w_{2}]\right.$ & $\epsilon$ &{\bf Dev Score} & {\bf Test Score }\\ [0.5ex]
+\hline
+[0.92, 0.08] & 0.10 & 0.52 & 0.536  \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:bleu} Best BLEU Result }
+\end{table}
+%---------------------------------------------------------------------
+
+\subsection{GLEU}
+GLEU score is an alternative measure to BLEU score. According to the article~\cite{WUS:16}, BLEU score may not perform good with sentences, while GLEU score does not have the drawback. 
+GLEU records all 1 to \emph{n-grams} of reference and hypothesis, then calculates recall and precision value of matched \emph{n-grams} between reference and hypothesis. More specifically, the recall is the ratio of the number of matched \emph{n-grams} to the number of \emph{n-grams} in reference sentence and the precision is the ratio of the number of matched \emph{n-grams} to the number of \emph{n-grams} in hypothesis sentence. The GLEU score takes the lower value between recall and precision.
+%---------------------------------------------------------------------
+%Vertical lines as column separators
+\begin{table}[h]
+\begin{center}
+ \begin{tabular}{|c|c|c|} 
+ \hline
+{N-gram} &{\bf Dev Score} & {\bf Test Score }\\ [0.5ex]
+\hline
+2 & 0.51 & 0.527  \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:gleu} Best GLEU Result. }
+\end{table}
+%---------------------------------------------------------------------
+
+\subsection{NIST}
+
+NIST score is another alternative measure to BLEU score. George introduced the differences between NIST and BLEU metrics in his article~\cite{HLT:02} that BLEU calculates the geometric mean of the overlapped  \emph{n-grams}, while NIST calculates weighted mean of the overlapped  \emph{n-grams}. NIST gives higher weights to those \emph{n-grams} that occur less frequently, which means those \emph{n-grams} are more informative. The weights of NIST is calculated using the Equation~\ref{eq:info}.
+
+\begin{equation}
+\emph{info($w_1$...$w_n$)} = \log_2 {\frac{\textit{\# of }w_1...w_{n-1}}{\textit{\# of }w_1...w_n}}
+\label{eq:info}
+\end{equation}
+
+Besides, NIST has a different brevity penalty calculated in Equation~\ref{eq:nistbp}. 
+\begin{equation}
+\emph{BP} = \exp \left\{
+ \beta \log^2 \left[
+  \min \left(
+   \frac{L_{hyp}}{ \overline{L}_{ref} } , 1
+  \right)
+ \right]
+\right\}
+\label{eq:nistbp}
+\end{equation}
+
+Where the $\beta$ is used to make the brevity penalty factor equal to 0.5 when the number of words in the hypothesis sentence is 2/3 of the average number of words in the references sentence. $L_{hyp}$ is the length of hypothesis sentence and $\overline{L}_{ref}$ is the average length of references sentence. And the NIST score is calculated in Equation~\ref{eq:nistsc}.
+\begin{eqnarray}
+\begin{aligned}
+\emph{score} &= {\emph{BP}} \times \\
+& \sum_{n=1}^{N} \left\{ \frac{\sum_{w_1...w_n}info(w_1...w_n)}{\textit{\# of }w_1...w_{n-1} \textit{ in h}} \right\}
+\end{aligned}
+\label{eq:nistsc}
+\end{eqnarray}
+
+From above computation formula, we get the best NIST result as shown in Table 4.
+%---------------------------------------------------------------------
+%Vertical lines as column separators
+\begin{table}[h]
+\begin{center}
+ \begin{tabular}{|c|c|c|} 
+ \hline
+{\bf Dev Score} & {\bf Test Score }\\ [0.5ex]
+\hline
+0.46 & 0.491 \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:nist} Best NIST Result. }
+\end{table}
+%---------------------------------------------------------------------
+
+\subsection{ROSE}
+ROSE is short for Regression and Ranking based Optimisation for Sentence-Level Machine Translation Evaluation. It trains a model based on human judgments using supervised learning. Combined precision, recall, f-mean for sentence and POS, ROSE looks like BLEU, yet achieves sentence-level accuracy and higher correlation with human judgments. ROSE sentence features as listed in Table 5 \cite{WMT:11} have \emph{n-gram} (1-4) precision, recall, f-mean for words and POS, averaged \emph{n-gram} precision, different words count, and \emph{n-gram} mixed precision precision. Then using sentence features, we trained models using Support Vector Machine (SVM) with different kernels ('linear', 'poly', 'rbf'), RandomForestClassifier, and GradientBoostingClassifier.
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|l|ll|}
+\hline
+\bf Index & \bf Description & \\
+\hline
+1-4 & n-gram precision, n=1...4 & \\
+5-8 & n-gram recall, n=1...4 & \\
+9-12 & n-gram f-measure, n=1...4 & \\
+13 & average n-gram precision & \\
+14 & words count & \\
+15 & function words (stopwords) counts  & \\
+16 & punctuation count & \\
+17 & content words count & \\
+\hline
+18-21 & n-gram POS precision, n=1...4 & \\
+22-25 & n-gram POS recall, n=1...4 & \\
+26-29 & n-gram POS f-measure, n=1...4 & \\
+30-33 & n-gram POS string mixed precision, & \\
+      & n=1...4 & \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:rose-sf} ROSE Sentence Features }
+\end{table}
+
+{\bf pre-processing}: Before calculating those features, training needs to be processed utf-8 encoded, lowercased and tokenized. Such that "Hello, word!" is then "hello, world !". In this way, different translations, especially reordering translation can map better.
+
+{\bf training and validating}: We split training corpus into five parts, and trained on the first four parts, validated on the 5th part.
+
+Below table records different scores for various models. For GradientBoosting and RandomForest, \emph{d} in brackets means max-depth. "Dev 1/-1 Score" is the score provided by score-evaluation.py, 1 for using training data label in file "dev.answers" directly, -1 for using the opposite number of those labels.
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|l|r|cr|}
+\hline
+{\bf Model}          & {\bf Train} & {\bf Dev 1/-1} \\ % & {\bf Test Score}\\
+                     & {\bf Score} & {\bf Score} \\ % & {\bf Test Score}\\
+\hline
+linear SVM           & 0.523 & 0.521 / 0.520 \\
+poly SVM             & 0.435 & 0.315 / 0.429 \\
+rbf SVM              & 0.520 & 0.326 / 0.520 \\
+Gradient Boosting    & 0.308 & 0.308 / 0.543 \\
+Classifier(d=5)      &       &               \\
+Gradient Boosting    & 0.501 & 0.294 / 0.597 \\
+Classifier(d=10)     &       &               \\
+Random Forest        & 0.510 & 0.315 / 0.538 \\
+Classifier(d=10)     &       &               \\
+Random Forest        & 0.516 & 0.311 / 0.582 \\
+Classifier(d=100)    &       &               \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:rose} Rose Results}
+\end{table}
+
+\subsection{LEPOR}
+LEPOR \cite{StatMT:12} is designed with the factors of enhanced length penalty, precision, \emph{n-gram} word order penalty, and recall. It provides a simple formula to compute it scores as follows:
+\begin{equation}
+\begin{aligned}
+\emph{LEPOR} =& LP \times NPosPenal \\& \times Harmonic\left ( \alpha R, \beta P \right )
+\end{aligned}
+\end{equation}
+
+We only use length penalty, which is defined to embrace the penalty for both longer and shorter system outputs compared with reference translations, and it is calculated as follows:
+
+\begin{equation}
+\begin{aligned}
+LP = \left\{\begin{matrix}
+e^{(1-\frac{r}{c})} &  &\mbox{ if }\ {c < r}\\
+1 &  &\mbox{ if }\ {c = r}\\ 
+e^{(1-\frac{c}{r})} &  &\mbox{ if }\ {c > r}
+\end{matrix}\right. 
+\end{aligned}
+\end{equation}
+
+The last formula we used to combine with \emph{n-gram} to calculate the score of the hypothesis sentence:
+
+\begin{equation}
+\begin{aligned}
+Score =& \alpha \ast lepor + \beta  \ast w \\& \ast (n-gram-recall)
+\end{aligned}
+\end{equation}
+
+We experimented different parameters to best results and got the following best parameters. We get best results that only used unigram, bigram, and trigram. The parameters are as following:
+
+
+%---------------------------------------------------------------------
+%Vertical lines as column separators
+\begin{table}[h]
+\begin{center}
+ \begin{tabular}{|c|c|c|c|c|} 
+ \hline
+$\alpha$ & $\beta$ & w & {\bf Dev} & {\bf Test }\\ [0.5ex]
+$ $ & $ $ &  & {\bf  Score} & {\bf Score }\\ [0.5ex]
+\hline
+0.64 & 0.36 & [1,1,1] & 0.524 & 0.546 \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:lepor} Best LEPOR  Result }
+\end{table}
+%---------------------------------------------------------------------
+
+
+\section{Data}
+In most metrics, we used the given data file hyp1-hyp2-ref as the input file to calculate scores of each hypothesis sentence. Besides that, we also downloaded module "porter" from nltk.stem library to use Porter stemming algorithm and an external database WordNet from NLTK library in order to look up the synonyms of words.
+
+In ROSE, hyp1-hyp2-ref and dev.answers are used as test data. train-test.hyp1-hyp2-ref and train.gold are used as training data. Besides, ROSE uses NLTK POS tag package to get the \emph{n-gram} POS precision, recall, and f-measure. In the training data, the first 20,000 records are used as training data; reserved 6,208 records are used as validation data. And because of these two files, first 20 rounds validation result looks reasonable, yet poor on test data. Thus, we use the opposite number of train labels to train another set of models. All 18 results are listed in Table 6.
+
+\section{Code}
+
+\subsection{External Code}
+In this project, we referred Porter Stemmer and WordNet form the NLTK library to do the mapping. The Porter Stemmer algorithm is a process for removing the commoner morphological and inflexional ending from words in English. Its source code can be retrieved from NLTK homepage. 
+
+
+WordNet is a large lexical database for the English language, which was created by Princeton. Nouns, verbs, adjectives, and adverbs are grouped into sets of cognitive synonyms. The source code can be downloaded from WordNet homepage.
+
+During the implement of LEPOR metric, we came up with some ideas and change some codes from the following open source projects in the GitHub which can be retrieved from https://github.com/aaronlifenghan and https://github.com/dhruvils.
+
+\subsection{Reused Code}
+We reused the \emph{n-gram} algorithms code from our homework1, which help us to calculate the \emph{n-gram} accuracy and recall. Then, part of code from homework2 also be reused for chunking. In this project, many algorithms are modified and combined by previous algorithms.
+
+\section{Experimental Setup}
+
+\subsection{Sentence Preprocess}
+Before the implementation of further evaluation methods, we conducted preprocess works on the input sentences. For better word matches, we converted all text into lower case, then from the results, we observed that the word “the” was not helping to determine the quality of hypothesis sentence, therefore we remove it from the text. We also stripped all punctuation for better matches. For ROSE, the sentence is tokenized before calculating n-gram for word and POS.
+
+\subsection{Translation Evaluate}
+We compared the performance of different evaluation metrics. We have implemented two different kinds of evaluators that are the heuristic method and supervised method. 
+
+Heuristic methods including METEOR, BLEU, GLEU, NIST, and LEPOR calculate similar between translation sentences and reference sentences and vote the translation sentence with a higher score. To improve these models, we tried different parameter combinations to get best results. According to results in article \cite{StatMT:08}, BLEU model result can be improved by extending the exact matched words, so we used the stemmed math and synonym match idea in METEOR and LEPOR metrics to uniform these flexible matched words in translation and reference to improve the results in BLEU, GLEU, and NIST models.
+
+The supervised method is ROSE, we tested with different models including SVM, RandomForest Classifier, and Gradient Boosting Classifier with various params. Results on split training data and dev data look in consist though. On training data, the more complex model we trained, the higher accuracy we get. On dev data, the more complex the lower.
+
+\section{Results}
+\label{sec:length}
+
+Table ~\ref{tab:all} shows the best results we get from the testing data based on each metrics. It shows that ROSE gets the highest score on our project.
+
+
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Model} & \textbf{Dev Score} & \textbf{Test Score} \\
+\hline
+METEOR         & 0.52             & 0.538               \\
+BLEU           & 0.52               & 0.536               \\
+GLEU           & 0.51               & 0.527               \\
+NIST           & 0.46               & 0.491                \\
+LEPOR          & 0.52              & 0.546               \\
+ROSE           & 0.61         & 0.63                    \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:all} Best Results Comparison with Different Algorithm  }
+\end{table}
+
+
+\section{Analysis of the Results}
+From the computation formula, METEOR, BLEU, NIST, GLEU are very similar. The BLEU is based on the idea is that "the closer a machine translation is to a professional human translation, the better it is". GLEU is based on the smaller \emph{n-gram} recall and precision. It makes sense that there are not much difference score on METEOR, BLEU, and GLEU. The NIST metric is based on the BLEU metric, but with some alterations. Since BLEU simply calculates \emph{n-gram} precision with different weights to each one, NIST also calculates how informative a particular \emph{n-gram} is. From the reference paper, the results should not have many differences between BLEU and NIST. However, the research suggests using no less than one sentence segments when evaluating corpus. And we also find the test score keeps increasing when \emph{n-gram} increases. So we guess NIST may perform better to evaluate document translation than sentence translation.
+
+
+The LEPOR methods get a higher score compare to former 4 methods since it combines many different evaluation methods.
+
+
+In Table~\ref{tab:all}, we find ROSE has the highest accuracy compared to other metrics. This result is reasonable that it has been proved the ROSE method performs better than heuristic methods according to article~\cite{WMT:11}. 
+
+For tests running using ROSE with training and dev data, we found a peculiar thing. The more data points included and the more complex model we set up, the accuracy of test data is higher, yet the dev accuracy is lower. So when predicting dev data, we time the prediction category with -1. And get higher accuracy. That's how we achieve the highest score in ROSE. So we think the labeling logic contradicts.
+
+\section{Future Work}
+\subsection{Word Match}
+Lemmatization is another type of word match that worth to be considered. Compared to stemming, which usually refers to a heuristic process to remove the derivational affixes, lemmatization uses vocabulary and morphological analysis of words to remove inflectional endings only and to return the base or dictionary form of a word, thus lemmatization generates a more reasonable result.
+
+\subsection{Smoothing}
+We didn't do much smoothing on METEOR, BLEU, GLEU, NIST, ROSE, LEPOR. We can improve over algorithm by testing different smoothing method.
+
+\subsection{Parameter Adjustment}
+We can definitely improve LEPOR by adjusting parameters since we didn't have enough time do enough test and research. We found a good material about LEPOR can be retrieved from https://arxiv.org/pdf/1703.08748.pdf
+
+\subsection{Synonym on Rose}
+In ROSE, \emph{n-gram} statistics are exactly matched,  synonym is not considered. This can be done to use GoogleNet to calculate word vector and setup synonym threshold, and then find the nearest word below that threshold.
+ 
+\subsection{XGBoost}
+XGBoost is kind of combination RandomForest and GradientBoosting, and most of the cases, combine models will bring benefits.
+
+\begin{thebibliography}{}
+\bibitem[\protect\citename{{Agarwal and Lavie}}2007]{StatMT:07}
+A. Agarwal and A. Lavie.
+\newblock (2007).
+\newblock METEOR: An Automatic Metric for MT Evaluation with High Levels of Correlation with Human Judgments.
+\newblock {\em In Proceedings of the second the Second Workshop on Statistical Machine Translation}, Pages 288--231.
+\newblock Prague, Czech Republic.
+
+\bibitem[\protect\citename{{Martin Porter}}2006]{Porter:06}
+Porter, Martin.
+\newblock (2006, January).
+\newblock {\em The Porter Stemming Algorithm}.
+\newblock Retrieved from https://tartarus.org/martin/PorterStemmer/.
+
+\bibitem[\protect\citename{Papineni and Roukos}2002]{ACL:02}
+Papineni, Kishore, Salim Roukos, Todd Ward and Wei-Jing Zhu.
+\newblock (2002).
+\newblock BLEU: a Method for Automatic Evaluation of Machine Translation.
+\newblock {\em In Proceedings of the 40th Annual Meeting on Association for Computational Linguistics},Pages 311-318
+\newblock Philadelphia, Pennsylvania.
+
+\bibitem[\protect\citename{Song and Cohn}2011]{WMT:11}
+Xingyi Song and Trevor Cohn.
+\newblock (2011).
+\newblock Regression and Ranking based Optimisation for Sentence Level Machine Translation Evaluation.
+\newblock {\em IN Proceedings of the 6th Workshop on Statistical Machine Translation}, Pages 123--129.
+\newblock Edinburgh, Scotland
+
+\bibitem[\protect\citename{{Wu and Schuster}}2016]{WUS:16}
+Y. Wu, M. Schuster, Z. Chen, Q. V.Le, M. Norouzi, W. Macherey, M. Krikun \bgroup et al.\egroup.
+\newblock (2016).
+\newblock Google's Neural Machine Translation System: Bridging the Gap between Human and Machine Translation.
+\newblock {\em arXiv:1609.08144}.
+\newblock
+
+\bibitem[\protect\citename{{George Doddington}}2002]{HLT:02}
+George Doddington.
+\newblock (2002).
+\newblock Automatic Evaluation of Machine Translation Quality Using N-gram Co-Occurrence Statistics.
+\newblock {\em In Proceeding of the second international conference on Human Language Technology Research}, Pages 138--145.
+\newblock San Diego, California.
+
+
+
+
+
+\bibitem[\protect\citename{Aaron and Derek}2012]{StatMT:12}
+Han, Aaron Li--Feng, Derek F. WONG and Lidia S. CHAO.
+\newblock (2012).
+\newblock LEPOR: A Robust Evaluation Metric for Machine Translation with Augmented Factors.
+\newblock {\em In Proceedings  of the  24th International Conference on Computational  Linguistics}, Posters.
+\newblock Mumbai, India.
+
+\bibitem[\protect\citename{{Agarwal and Lavie}}2008]{StatMT:08}
+A. Agarwal and A. Lavie.
+\newblock (2008).
+\newblock METEOR, M-BLEU and M-TER: Evaluation Metrics for High-Correlation with Human Rankings of Machine Translation Output.
+\newblock {\em In Proceedings of the Third Workshop on Statistical Machine Translation},
+Pages 115-118.
+\newblock Columbus, Ohio.
+
+
+
+% ROSE paper ref http://aclweb.org/anthology//W/W11/W11-2113.pdf
+
+% Google’s Neural Machine Translation System: Bridging the Gap between Human and Machine Translation.
+
+% Automatic evaluation of machine translation quality using n-gram co-occurrence statistics.
+
+% Meteor paper ref http://aclweb.org/anthology/W/W07/W07-0734.pdf
+
+% BLEU paper ref http://aclweb.org/anthology//P/P02/P02-1040.pdf
+
+% LEPOR paper ref http://aclweb.org/anthology//C/C12/C12-2044.pdf
+
+
+% Meteor, m-bleu and m-ter: Evaluation metrics for high-correlation with human rankings of machine translation output
+
+\end{thebibliography}
+
+\end{document}
